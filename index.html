@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Senshi-Kan — ¿Cómo te sentiste?</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      min-height: 100dvh;
+      background: #0a0a0f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+    .logo {
+      width: 72px;
+      margin-bottom: 18px;
+      opacity: 0.92;
+    }
+    .pregunta {
+      color: #ffffff;
+      font-size: clamp(1.2rem, 4.5vw, 1.9rem);
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 36px;
+      padding: 0 24px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      width: min(94vw, 500px);
+      padding: 0 8px;
+    }
+    .btn {
+      background: #14141f;
+      border: 2.5px solid #2a2a4a;
+      border-radius: 22px;
+      padding: 20px 10px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 11px;
+      min-height: 140px;
+      touch-action: manipulation;
+      transition: transform 0.12s, border-color 0.15s, background 0.15s;
+    }
+    .btn:active { transform: scale(0.94); }
+    .btn-emoji  { font-size: clamp(3rem, 11vw, 4.2rem); line-height: 1; }
+    .btn-label  {
+      color: #c0c0dc;
+      font-size: clamp(0.82rem, 3vw, 1.05rem);
+      font-weight: 600;
+      text-align: center;
+    }
+    .btn-a { border-color: #ff6b35; }
+    .btn-a:active { background: #2a180e; }
+    .btn-b { border-color: #f7c948; }
+    .btn-b:active { background: #252210; }
+    .btn-c { border-color: #4a9eff; }
+    .btn-c:active { background: #0e1825; }
+    .btn-d { border-color: #9b6bdf; }
+    .btn-d:active { background: #160d26; }
+
+    /* Overlay de confirmación */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 10, 15, 0.97);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+      z-index: 100;
+    }
+    .overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .ov-emoji {
+      font-size: clamp(5rem, 18vw, 7rem);
+      margin-bottom: 22px;
+      animation: pop 0.35s ease;
+    }
+    .ov-texto {
+      color: #ffffff;
+      font-size: clamp(1.5rem, 5.5vw, 2.2rem);
+      font-weight: 700;
+      text-align: center;
+    }
+    .ov-sub {
+      color: #6666aa;
+      font-size: clamp(0.9rem, 3vw, 1.1rem);
+      margin-top: 12px;
+      text-align: center;
+    }
+    @keyframes pop {
+      0%   { transform: scale(0.4); opacity: 0; }
+      70%  { transform: scale(1.18); }
+      100% { transform: scale(1);    opacity: 1; }
+    }
+
+    /* Barra de progreso inferior */
+    .barra {
+      position: fixed;
+      bottom: 0; left: 0;
+      height: 5px;
+      width: 100%;
+      background: #f7c948;
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: none;
+      z-index: 200;
+    }
+    .barra.contando {
+      transform: scaleX(1);
+      transition: transform 3s linear;
+    }
+  </style>
+</head>
+<body>
+
+  <img class="logo"
+       src="https://raw.githubusercontent.com/americordzn-karate/retos/17eba3e9c50358ded081c3fe44bf64e6db2745ee/Escudo%20Circulo%20PNG.png"
+       alt="Senshi-Kan">
+
+  <p class="pregunta">¿Cómo te sentiste hoy en tu clase?</p>
+
+  <div class="grid">
+    <button class="btn btn-a" onclick="votar(10, '😍')">
+      <span class="btn-emoji">😍</span>
+      <span class="btn-label">¡Me encantó!</span>
+    </button>
+    <button class="btn btn-b" onclick="votar(7.5, '😊')">
+      <span class="btn-emoji">😊</span>
+      <span class="btn-label">Me gustó</span>
+    </button>
+    <button class="btn btn-c" onclick="votar(5, '😐')">
+      <span class="btn-emoji">😐</span>
+      <span class="btn-label">Más o menos</span>
+    </button>
+    <button class="btn btn-d" onclick="votar(2.5, '😞')">
+      <span class="btn-emoji">😞</span>
+      <span class="btn-label">No me gustó</span>
+    </button>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="ov-emoji" id="ovEmoji"></div>
+    <div class="ov-texto">¡Gracias por tu opinión!</div>
+    <div class="ov-sub">Preparando para el siguiente alumno…</div>
+  </div>
+
+  <div class="barra" id="barra"></div>
+
+  <script>
+    const ENDPOINT = "https://script.google.com/macros/s/AKfycbwX5w8iiwkJVbGtpz-5f20U9jue2MC0vouE3blkHXo9CIMqg9bvCZrAYE8WKxH4gXGWzg/exec";
+    let bloqueado = false;
+
+    // ── Wake Lock: evita que la pantalla se apague ──────────────
+    let wakeLock = null;
+
+    async function pedirWakeLock() {
+      if ("wakeLock" in navigator) {
+        try { wakeLock = await navigator.wakeLock.request("screen"); }
+        catch (e) { /* el dispositivo puede negarlo; la página sigue funcionando */ }
+      }
+    }
+
+    // Volver a pedir el wake lock si la pantalla se reactiva
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") pedirWakeLock();
+    });
+
+    pedirWakeLock();
+
+    // ── Registrar voto ─────────────────────────────────────────
+    function votar(puntos, emoji) {
+      if (bloqueado) return;
+      bloqueado = true;
+
+      // Enviar a Apps Script
+      fetch(ENDPOINT, {
+        method:  "POST",
+        mode:    "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ tipo: "satisfaccion", opinion: puntos })
+      }).catch(() => { /* error de red silencioso; no bloquear al alumno */ });
+
+      // Mostrar overlay de confirmación
+      document.getElementById("ovEmoji").textContent = emoji;
+      const overlay = document.getElementById("overlay");
+      overlay.classList.add("visible");
+
+      // Animar barra de progreso de 3 segundos
+      const barra = document.getElementById("barra");
+      barra.classList.remove("contando");
+      void barra.offsetWidth;          // reinicia la animación CSS
+      barra.classList.add("contando");
+
+      // Ocultar y resetear tras 3 segundos
+      setTimeout(() => {
+        overlay.classList.remove("visible");
+        barra.classList.remove("contando");
+        bloqueado = false;
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
