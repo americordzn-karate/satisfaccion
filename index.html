@@ -190,10 +190,53 @@
 
     pedirWakeLock();
 
+    // ── Sonido "mágico" (Web Audio API, sin archivos externos) ──
+    let audioCtx = null;
+
+    function sonidoMagia() {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        if (!audioCtx) audioCtx = new AC();
+        if (audioCtx.state === "suspended") audioCtx.resume();
+
+        const t0 = audioCtx.currentTime;
+        // Arpegio ascendente brillante (Do mayor, octavas altas)
+        const notas = [1046.5, 1318.5, 1568.0, 2093.0, 2637.0];
+
+        notas.forEach((freq, i) => {
+          const inicio = t0 + i * 0.07;
+          const fin    = inicio + 0.55;
+
+          const osc  = audioCtx.createOscillator();
+          const osc2 = audioCtx.createOscillator(); // armónico para el "brillo"
+          const gain = audioCtx.createGain();
+
+          osc.type  = "sine";
+          osc2.type = "triangle";
+          osc.frequency.setValueAtTime(freq, inicio);
+          osc2.frequency.setValueAtTime(freq * 2, inicio);
+
+          gain.gain.setValueAtTime(0.0001, inicio);
+          gain.gain.exponentialRampToValueAtTime(0.18, inicio + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, fin);
+
+          osc.connect(gain);
+          osc2.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc.start(inicio);  osc.stop(fin);
+          osc2.start(inicio); osc2.stop(fin);
+        });
+      } catch (e) { /* si el audio falla, el registro del voto continúa */ }
+    }
+
     // ── Registrar voto ─────────────────────────────────────────
     function votar(puntos, emoji) {
       if (bloqueado) return;
       bloqueado = true;
+
+      sonidoMagia();
 
       // Enviar a Apps Script
       fetch(ENDPOINT, {
